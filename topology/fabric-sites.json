@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "description": "Curated subset of the FABRIC testbed core topology for the CODES fluid-flow WAN model",
+    "retrieved": "2026-09-29",
+    "sources": [
+      "https://orchestrator.fabric-testbed.net/portalresources?graph_format=JSON_NODELINK&level=1",
+      "https://github.com/fabric-testbed/fabric-portal",
+      "https://renci.org/news/nsf-fabric-project-announces-groundbreaking-high-speed-network-infrastructure-expansion/",
+      "https://www.sdsc.edu/news/2023/PR20231023_FABRIC.html",
+      "https://arxiv.org/abs/2603.12660"
+    ],
+    "notes": "Sites and link capacities come from FABRIC's public, unauthenticated orchestrator resource advertisement (the level-1 graph the portal's Resources page is built from), snapshot 2026-09-29. Each link bandwidth is the advertised trunk-port capacity ('Capacities.bw' on both TrunkPort endpoints). The orchestrator separately advertises a reservable link capacity of 80% of that: 960 Gbps on the 1200 Gbps TeraCore links and 80 Gbps on the 100 Gbps links. arXiv:2603.12660 independently confirms the 80 Gb/s reservation limit on 100 Gb/s FABRIC links. The 1200 Gbps TeraCore links are Bundle-Ether (LAG) interfaces, which fits 3x400G, but the member count is inferred and not documented. If they are LAGs, a single flow is hash-limited to one member (400G). The subset is a tree cut from the real ring. The real TeraCore ring is LOSA-SALT-STAR-NEWY-WASH-ATLA-DALL-LOSA, so there is a second, southern path between LOSA and NEWY (via DALL, ATLA, WASH) that is omitted here. Chords such as STAR-WASH, KANS-STAR, KANS-SALT and KANS-DALL (100 Gbps each) are omitted as well. Real FABRIC MPLS path selection is not public, so the model assumes the direct subset path. Switch buffer and terminal bandwidth defaults are modeling assumptions, not FABRIC data."
+  },
+  "defaults": {
+    "terminals_per_site": 2,
+    "terminal_bandwidth": "100 Gbps",
+    "switch_buffer": "2 Gb"
+  },
+  "sites": [
+    {"name": "LOSA", "location": "Los Angeles, CA", "notes": "TeraCore ring node (818 W 7th St). Westernmost source."},
+    {"name": "SALT", "location": "Salt Lake City, UT", "notes": "TeraCore ring node (572 Delong St). Transit between LOSA and STAR, and also a source."},
+    {"name": "STAR", "location": "Chicago, IL", "notes": "StarLight (710 N Lake Shore Dr). TeraCore ring node and hub for the Midwest 100G spokes. Largest compute site (6 workers)."},
+    {"name": "NEWY", "location": "New York, NY", "notes": "TeraCore ring node (32 Sixth Ave). Easternmost source."},
+    {"name": "MICH", "location": "Ann Arbor, MI", "notes": "University of Michigan. Single-homed to STAR by one 100 Gbps link (no other MICH trunk in the advertisement). Common destination, so STAR-MICH is the shared bottleneck."}
+  ],
+  "links": [
+    {"endpoints": ["LOSA", "SALT"], "bandwidth": "1200 Gbps", "assumed": false, "notes": "TeraCore ring segment. Public orchestrator advertisement: L1Path losa-data-sw Bundle-Ether100.3000 <-> salt-data-sw Bundle-Ether100.3000, trunk ports bw=1200 on both ends, reservable link bw=960. Matches the 1.2 Tbps TeraCore announcement (RENCI/SDSC, 2023-10-23)."},
+    {"endpoints": ["SALT", "STAR"], "bandwidth": "1200 Gbps", "assumed": false, "notes": "TeraCore ring segment. Public orchestrator advertisement: L1Path SALT-STAR Bundle-Ether101.3001, trunk ports bw=1200 on both ends, reservable link bw=960."},
+    {"endpoints": ["STAR", "NEWY"], "bandwidth": "1200 Gbps", "assumed": false, "notes": "TeraCore ring segment. Public orchestrator advertisement: L1Path NEWY-STAR Bundle-Ether101.3001, trunk ports bw=1200 on both ends, reservable link bw=960."},
+    {"endpoints": ["STAR", "MICH"], "bandwidth": "100 Gbps", "assumed": false, "notes": "Regional spoke and the shared bottleneck. Public orchestrator advertisement: L1Path MICH-STAR HundredGigE0/0/0/23.3000, trunk ports bw=100, reservable link bw=80. The 80 Gb/s reservation limit on 100 Gb/s links is confirmed by arXiv:2603.12660 (Sarpkaya et al., HPSR 2026)."}
+  ]
+}
