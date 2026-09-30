@@ -15,10 +15,13 @@ artifacts, so the simulation side never depends on FABRIC being reachable.
 | Artifact | Producer (this repo) | Consumer (CODES repo) |
 |---|---|---|
 | Topology JSON (`topology/fabric-sites.json`) | curated by hand today; later exported from live fablib queries | `scripts/fabric-topology-to-ffw.py` converts it to an FFW topology YAML |
-| Traffic trace CSV (`interval,flow_id,source_terminal,destination_terminal,offered_gbit`) | Phase 2: converted from Prometheus/iperf3 measurements | FFW trace-traffic front end |
+| Traffic trace CSV (`interval,flow_id,source_terminal,destination_terminal,offered_gbit`) | `trace/fabric-metrics-to-ffw-trace.py` converts iperf3 results / Prometheus counters, via a mapping file | FFW trace-traffic front end |
 
 The topology JSON schema is documented in the converter script's docstring in
-the CODES repo; treat it as the contract when writing export tooling here.
+the CODES repo; treat it as the contract when writing export tooling here. The
+trace CSV rules and the measurement-to-flow mapping schema are documented in
+`trace/fabric-metrics-to-ffw-trace.py`'s docstring and in
+[`trace/README.md`](trace/README.md).
 
 ## Layout
 
@@ -39,6 +42,13 @@ the CODES repo; treat it as the contract when writing export tooling here.
     the same data the portal's Resources page renders. 38 sites and all
     inter-site links with port speeds and reservable (80%) capacities.
   - `links-table.txt` — the 40 inter-site links extracted from it.
+- `trace/` — Phase 2 measurement-to-trace converter
+  (`fabric-metrics-to-ffw-trace.py`): iperf3 JSON results (controlled
+  fixed-rate UDP validation) or Prometheus `query_range` interface counters
+  (achieved-as-offered replay) → FFW trace CSV, with an example mapping for the
+  5-site subset, committed samples, golden outputs, and offline tests
+  (`python3 -m unittest discover -s trace/tests -v`). See
+  [`trace/README.md`](trace/README.md).
 
 ## Conventions
 
@@ -55,7 +65,8 @@ the CODES repo; treat it as the contract when writing export tooling here.
    configs and CI in the CODES repo.
 2. **Phase 2** — trace pipeline: fixed-rate UDP experiment plans, and
    conversion of MFLib/Prometheus measurements and iperf3 output into the
-   FFW trace CSV format.
+   FFW trace CSV format. The converter is in `trace/`; experiment plans and
+   the MFLib export step are still to do.
 3. **Phase 3** — controlled validation experiments on a FABRIC slice
    spanning the five sites (fablib notebooks/scripts, MFLib setup,
    comparison scripts).

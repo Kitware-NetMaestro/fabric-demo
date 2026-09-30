@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "description": "Example measurement-to-FFW mapping for the 5-site FABRIC subset (topology/fabric-sites.json: LOSA 0-1, SALT 2-3, STAR 4-5, NEWY 6-7, MICH 8-9). The iperf3 entries match the committed loopback samples in trace/samples/iperf3/; the prometheus entries match the synthetic node-exporter series in trace/samples/prometheus/. On a real slice, match iperf3 runs by --title or local_host, and Prometheus series by instance+device of each node's dataplane NIC.",
+  "iperf3": [
+    {
+      "match": {"file": "udp-losa-to-mich-200M.json"},
+      "flow_id": 1001,
+      "source_terminal": "LOSA.0",
+      "destination_terminal": "MICH.0",
+      "notes": "UDP 200 Mbps fixed rate, 10 s"
+    },
+    {
+      "match": {"title": "newy-to-mich-udp"},
+      "flow_id": 1002,
+      "source_terminal": "NEWY.0",
+      "destination_terminal": "MICH.1",
+      "notes": "UDP 500 Mbps fixed rate, 6 s, 0.5 s reporting; matched by iperf3 --title"
+    },
+    {
+      "match": {"file": "tcp-salt-to-star.json"},
+      "flow_id": 1003,
+      "source_terminal": 2,
+      "destination_terminal": 4,
+      "notes": "TCP (capped at 1 Gbps): achieved == offered caveat applies; terminal ids given numerically (SALT.0 -> STAR.0)"
+    }
+  ],
+  "prometheus": [
+    {
+      "match": {"__name__": "node_network_transmit_bytes_total", "instance": "losa-w1.fabric-demo:9100", "device": "enp7s0"},
+      "flow_id": 2001,
+      "source_terminal": "LOSA.0",
+      "destination_terminal": "MICH.0",
+      "notes": "LOSA worker dataplane NIC; all its traffic is assumed to be headed for MICH"
+    },
+    {
+      "match": {"__name__": "node_network_transmit_bytes_total", "instance": "newy-w1.fabric-demo:9100", "device": "enp7s0"},
+      "flow_id": 2002,
+      "source_terminal": "NEWY.0",
+      "destination_terminal": "MICH.1"
+    },
+    {
+      "match": {"__name__": "node_network_transmit_bytes_total", "instance": "salt-w1.fabric-demo:9100", "device": "enp7s0"},
+      "flow_id": 2003,
+      "source_terminal": "SALT.0",
+      "destination_terminal": "STAR.0",
+      "notes": "Series contains a counter reset (synthetic)"
+    }
+  ]
+}
