@@ -6,8 +6,8 @@ fluid-flow WAN (FFW) model against the [FABRIC testbed](https://portal.fabric-te
 The simulation model itself lives in the CODES repository
 (`codes-director-ml`, branch `digital-twin-sbir-fluid-flow-wan-model-stats`).
 This repo holds everything that touches FABRIC directly: curated topology
-data, and (in later phases) fablib slice setup, experiment runners, and
-measurement-export tooling. The two repos communicate only through exported
+data, the measurement-to-trace converter and Prometheus export, the validation
+experiment plans and fablib slice tooling, and the sim-vs-measured comparison. The two repos communicate only through exported
 artifacts, so the simulation side never depends on FABRIC being reachable.
 
 ## Interface contract with the CODES repo
@@ -16,6 +16,8 @@ artifacts, so the simulation side never depends on FABRIC being reachable.
 |---|---|---|
 | Topology JSON (`topology/fabric-sites.json`) | curated by hand today; later exported from live fablib queries | `scripts/fabric-topology-to-ffw.py` converts it to an FFW topology YAML |
 | Traffic trace CSV (`interval,flow_id,source_terminal,destination_terminal,offered_gbit`) | `trace/fabric-metrics-to-ffw-trace.py` converts iperf3 results / Prometheus counters, via a mapping file | FFW trace-traffic front end |
+| Validation-ladder schedule (`experiments/validation-ladder-schedule.json`) | mirror of `SCHEDULE` in the CODES repo's `scripts/fabric-validation-ladder-trace.py`, which is authoritative | (TODO: have the CODES generator read it) |
+| FFW CSV logs (`terminal-events.csv`, `switch-events.csv`) | (consumed here) `analysis/compare-sim-vs-measured.py` | written by the FFW model runs |
 
 The topology JSON schema is documented in the converter script's docstring in
 the CODES repo; treat it as the contract when writing export tooling here. The
@@ -47,8 +49,45 @@ trace CSV rules and the measurement-to-flow mapping schema are documented in
   fixed-rate UDP validation) or Prometheus `query_range` interface counters
   (achieved-as-offered replay) → FFW trace CSV, with an example mapping for the
   5-site subset, committed samples, golden outputs, and offline tests
-  (`python3 -m unittest discover -s trace/tests -v`). See
+  (`python3 -m unittest discover -s trace/tests -v`). Also
+  `fetch-prometheus-range.py`, which exports a Prometheus `query_range` window
+  (MFLib's metrics store) in the converter's input form. See
   [`trace/README.md`](trace/README.md).
+- `experiments/` — Phase 2/3 validation experiments. The machine-readable
+  validation-ladder schedule mirrors the CODES simulation's `SCHEDULE` and is
+  drift-tested against it. `make-iperf3-plan.py` turns it into per-VM iperf3
+  commands and scripts, with a `--scale` factor, plus the converter mapping.
+  `slice/` holds the fablib + MFLib slice builder for the 5-site slice
+  (**UNTESTED — requires FABRIC project access**; its fablib dependency is
+  optional and pinned separately). See [`experiments/README.md`](experiments/README.md).
+- `analysis/` — Phase 3 comparison: `compare-sim-vs-measured.py` aligns FFW
+  CSV-log series with measured series (converter trace as offered, `time,value`
+  or iperf3 server results as delivered). It shifts for the model's delivery lag
+  and reports a per-interval table, bias/RMSE/relative error, per-rung shares and
+  an optional plot. The README has a worked sim-vs-sim example. See
+  [`analysis/README.md`](analysis/README.md).
+- `docs/access-checklist.md` — the runbook for when FABRIC access is granted:
+  account and keys, JupyterHub vs local fablib, topology re-verification,
+  capacity and scrape-cadence checks, and the order of the first experiments.
+- `test_all.py` — collects every test directory for root-level discovery (see
+  Tests).
+
+## Tests
+
+All tests are offline, stdlib `unittest`, and need no FABRIC access. From the
+repository root:
+
+```bash
+python3 -m unittest discover -v          # everything: trace/, experiments/, analysis/
+python3 -m unittest discover -s trace/tests -v   # one directory (likewise experiments/tests, analysis/tests)
+```
+
+110 tests: 69 in trace, 22 in experiments and 19 in analysis. One is skipped
+unless `CODES_DIR` points at a CODES checkout; that test compares the schedule
+mirror with the generator's `SCHEDULE` directly. The plot test is skipped when
+matplotlib is absent. The test directories are deliberately not packages (a
+`trace/__init__.py` would shadow the stdlib `trace` module), so root discovery
+goes through `test_all.py`. Keep test module names unique across directories.
 
 ## Conventions
 
@@ -61,12 +100,30 @@ trace CSV rules and the measurement-to-flow mapping schema are documented in
 
 ## Roadmap
 
-1. **Phase 1 (current)** — curated topology subset (done here) + FFW model
+1. **Phase 1 (done)** — curated topology subset (done here) + FFW model
    configs and CI in the CODES repo.
 2. **Phase 2** — trace pipeline: fixed-rate UDP experiment plans, and
    conversion of MFLib/Prometheus measurements and iperf3 output into the
-   FFW trace CSV format. The converter is in `trace/`; experiment plans and
-   the MFLib export step are still to do.
+   FFW trace CSV format. **Done offline:** the converter and Prometheus
+   fetcher (`trace/`) and the validation-ladder schedule, iperf3 plan and
+   mapping (`experiments/`). A loopback rehearsal of the full plan with real
+   iperf3 ran through the converter and the model. **Pending access:** runs on
+   FABRIC, and the fetcher against a real MFLib Prometheus.
 3. **Phase 3** — controlled validation experiments on a FABRIC slice
-   spanning the five sites (fablib notebooks/scripts, MFLib setup,
-   comparison scripts).
+   spanning the five sites. **Prepared, pre-access:**
+   - the fablib + MFLib slice builder (`experiments/slice/`; import-checked
+     against fablib 2.0.9 but never run against FABRIC);
+   - the comparison tool (`analysis/`; demonstrated sim-vs-sim);
+   - the first-session runbook (`docs/access-checklist.md`).
+
+   **Waiting on:** FABRIC project access.
+
+4. **Later — background traffic.** FABRIC publishes network traffic metrics
+   for all infrastructure links, no login needed, at
+   [public-metrics.fabric-testbed.net](https://public-metrics.fabric-testbed.net/)
+   (Grafana dashboards; the optical links also appear on
+   [ESnet Stardust dashboards](https://dashboard.stardust.es.net/d/XkxDL5H7z/esnet-public-dashboards?orgId=2)).
+   Confirmed reachable 2026-09-30. This is the candidate source for modeling
+   cross traffic from other slices, so our validation runs need not assume
+   they are alone on the links; programmatic access to the underlying series
+   is still to be investigated.

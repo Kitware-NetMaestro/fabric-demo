@@ -1,0 +1,11 @@
+# Optional dependencies of experiments/slice/build_ladder_slice.py ONLY.
+# Nothing else in this repository needs them; the rest is Python stdlib.
+#
+# Python >= 3.11 is required in practice: fabrictestbed-extensions 2.0.x declares
+# Requires-Python >= 3.10 but imports datetime.UTC (3.11+) and fails on 3.10.
+#
+# Versions below are the ones `build_ladder_slice.py check-api` passed against
+# (2026-09-30, Python 3.12, offline import check only -- no FABRIC calls made).
+#   python3.12 -m venv .venv-fablib && .venv-fablib/bin/pip install -r experiments/slice/requirements-fablib.txt
+fabrictestbed-extensions==2.0.9
+fabrictestbed-mflib==1.0.10

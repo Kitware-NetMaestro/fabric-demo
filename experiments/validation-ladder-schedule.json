@@ -1,0 +1,376 @@
+{
+  "schema_version": 1,
+  "description": "FABRIC validation ladder: fixed-rate UDP flows between slice VMs at 5 FABRIC sites, mirroring the simulation SCHEDULE rung for rung. Rates are unscaled (make-iperf3-plan.py --scale applies a uniform factor). Times are seconds since the ladder start (interval 0).",
+  "authoritative_source": {
+    "repository": "codes-director-ml",
+    "file": "scripts/fabric-validation-ladder-trace.py",
+    "structure": "SCHEDULE",
+    "commit": "9720c41df3a6003fc082a5f8b8b96fc1af563ead",
+    "note": "The simulation generator is authoritative for now. This file mirrors it; experiments/tests/test_schedule.py checks the mirror against experiments/expected/validation-ladder-sim-trace.csv (a copy of the generator's committed output) and, when CODES_DIR is set, against the generator's SCHEDULE directly."
+  },
+  "todo": "Make this JSON the single source both sides consume (the CODES generator would read it instead of its inline SCHEDULE). Not done yet; until then edit the CODES SCHEDULE first and re-mirror here.",
+  "interval_seconds": 10,
+  "num_send_intervals": 37,
+  "sites": [
+    {
+      "name": "LOSA",
+      "switch": 0,
+      "vms": [
+        {
+          "site": "LOSA",
+          "vm": "losa-vm0",
+          "terminal_name": "LOSA.0",
+          "terminal": 0
+        },
+        {
+          "site": "LOSA",
+          "vm": "losa-vm1",
+          "terminal_name": "LOSA.1",
+          "terminal": 1
+        }
+      ]
+    },
+    {
+      "name": "SALT",
+      "switch": 1,
+      "vms": [
+        {
+          "site": "SALT",
+          "vm": "salt-vm0",
+          "terminal_name": "SALT.0",
+          "terminal": 2
+        },
+        {
+          "site": "SALT",
+          "vm": "salt-vm1",
+          "terminal_name": "SALT.1",
+          "terminal": 3
+        }
+      ]
+    },
+    {
+      "name": "STAR",
+      "switch": 2,
+      "vms": [
+        {
+          "site": "STAR",
+          "vm": "star-vm0",
+          "terminal_name": "STAR.0",
+          "terminal": 4
+        },
+        {
+          "site": "STAR",
+          "vm": "star-vm1",
+          "terminal_name": "STAR.1",
+          "terminal": 5
+        }
+      ]
+    },
+    {
+      "name": "NEWY",
+      "switch": 3,
+      "vms": [
+        {
+          "site": "NEWY",
+          "vm": "newy-vm0",
+          "terminal_name": "NEWY.0",
+          "terminal": 6
+        },
+        {
+          "site": "NEWY",
+          "vm": "newy-vm1",
+          "terminal_name": "NEWY.1",
+          "terminal": 7
+        }
+      ]
+    },
+    {
+      "name": "MICH",
+      "switch": 4,
+      "vms": [
+        {
+          "site": "MICH",
+          "vm": "mich-vm0",
+          "terminal_name": "MICH.0",
+          "terminal": 8
+        },
+        {
+          "site": "MICH",
+          "vm": "mich-vm1",
+          "terminal_name": "MICH.1",
+          "terminal": 9
+        }
+      ]
+    }
+  ],
+  "rungs": [
+    {
+      "rung": 1,
+      "name": "single flow",
+      "purpose": "Baseline / calibration: one flow below the bottleneck is delivered in full.",
+      "start_interval": 0,
+      "intervals": 4,
+      "gap_after": 2,
+      "start_s": 0,
+      "duration_s": 40,
+      "flows": [
+        {
+          "flow_id": 101,
+          "source": {
+            "site": "LOSA",
+            "vm": "losa-vm0",
+            "terminal_name": "LOSA.0",
+            "terminal": 0
+          },
+          "destination": {
+            "site": "MICH",
+            "vm": "mich-vm0",
+            "terminal_name": "MICH.0",
+            "terminal": 8
+          },
+          "steps": [
+            {
+              "start_interval": 0,
+              "intervals": 4,
+              "start_s": 0,
+              "duration_s": 40,
+              "rate_gbps": 80
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rung": 2,
+      "name": "two flows share the bottleneck",
+      "purpose": "Two 80 Gbps flows (160 offered into 100): max-min gives each 50 Gbps.",
+      "start_interval": 6,
+      "intervals": 4,
+      "gap_after": 5,
+      "start_s": 60,
+      "duration_s": 40,
+      "flows": [
+        {
+          "flow_id": 201,
+          "source": {
+            "site": "LOSA",
+            "vm": "losa-vm0",
+            "terminal_name": "LOSA.0",
+            "terminal": 0
+          },
+          "destination": {
+            "site": "MICH",
+            "vm": "mich-vm0",
+            "terminal_name": "MICH.0",
+            "terminal": 8
+          },
+          "steps": [
+            {
+              "start_interval": 6,
+              "intervals": 4,
+              "start_s": 60,
+              "duration_s": 40,
+              "rate_gbps": 80
+            }
+          ]
+        },
+        {
+          "flow_id": 202,
+          "source": {
+            "site": "NEWY",
+            "vm": "newy-vm0",
+            "terminal_name": "NEWY.0",
+            "terminal": 6
+          },
+          "destination": {
+            "site": "MICH",
+            "vm": "mich-vm1",
+            "terminal_name": "MICH.1",
+            "terminal": 9
+          },
+          "steps": [
+            {
+              "start_interval": 6,
+              "intervals": 4,
+              "start_s": 60,
+              "duration_s": 40,
+              "rate_gbps": 80
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rung": 3,
+      "name": "overload",
+      "purpose": "Three sources offer 240 Gbps into 100: backlog builds while they offer and drains at 100 Gbps afterwards.",
+      "start_interval": 15,
+      "intervals": 3,
+      "gap_after": 7,
+      "start_s": 150,
+      "duration_s": 30,
+      "flows": [
+        {
+          "flow_id": 301,
+          "source": {
+            "site": "LOSA",
+            "vm": "losa-vm0",
+            "terminal_name": "LOSA.0",
+            "terminal": 0
+          },
+          "destination": {
+            "site": "MICH",
+            "vm": "mich-vm0",
+            "terminal_name": "MICH.0",
+            "terminal": 8
+          },
+          "steps": [
+            {
+              "start_interval": 15,
+              "intervals": 3,
+              "start_s": 150,
+              "duration_s": 30,
+              "rate_gbps": 80
+            }
+          ]
+        },
+        {
+          "flow_id": 302,
+          "source": {
+            "site": "SALT",
+            "vm": "salt-vm0",
+            "terminal_name": "SALT.0",
+            "terminal": 2
+          },
+          "destination": {
+            "site": "MICH",
+            "vm": "mich-vm1",
+            "terminal_name": "MICH.1",
+            "terminal": 9
+          },
+          "steps": [
+            {
+              "start_interval": 15,
+              "intervals": 3,
+              "start_s": 150,
+              "duration_s": 30,
+              "rate_gbps": 80
+            }
+          ]
+        },
+        {
+          "flow_id": 303,
+          "source": {
+            "site": "NEWY",
+            "vm": "newy-vm0",
+            "terminal_name": "NEWY.0",
+            "terminal": 6
+          },
+          "destination": {
+            "site": "MICH",
+            "vm": "mich-vm0",
+            "terminal_name": "MICH.0",
+            "terminal": 8
+          },
+          "steps": [
+            {
+              "start_interval": 15,
+              "intervals": 3,
+              "start_s": 150,
+              "duration_s": 30,
+              "rate_gbps": 80
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rung": 4,
+      "name": "time-varying",
+      "purpose": "Scripted demand replay: a stepped flow ramps 20-40-70-40-20 Gbps over a constant 40 Gbps flow. Only the 70 Gbps step (110 aggregate) oversubscribes the bottleneck.",
+      "start_interval": 25,
+      "intervals": 10,
+      "gap_after": 2,
+      "start_s": 250,
+      "duration_s": 100,
+      "flows": [
+        {
+          "flow_id": 401,
+          "source": {
+            "site": "LOSA",
+            "vm": "losa-vm0",
+            "terminal_name": "LOSA.0",
+            "terminal": 0
+          },
+          "destination": {
+            "site": "MICH",
+            "vm": "mich-vm0",
+            "terminal_name": "MICH.0",
+            "terminal": 8
+          },
+          "steps": [
+            {
+              "start_interval": 25,
+              "intervals": 2,
+              "start_s": 250,
+              "duration_s": 20,
+              "rate_gbps": 20
+            },
+            {
+              "start_interval": 27,
+              "intervals": 2,
+              "start_s": 270,
+              "duration_s": 20,
+              "rate_gbps": 40
+            },
+            {
+              "start_interval": 29,
+              "intervals": 2,
+              "start_s": 290,
+              "duration_s": 20,
+              "rate_gbps": 70
+            },
+            {
+              "start_interval": 31,
+              "intervals": 2,
+              "start_s": 310,
+              "duration_s": 20,
+              "rate_gbps": 40
+            },
+            {
+              "start_interval": 33,
+              "intervals": 2,
+              "start_s": 330,
+              "duration_s": 20,
+              "rate_gbps": 20
+            }
+          ]
+        },
+        {
+          "flow_id": 402,
+          "source": {
+            "site": "NEWY",
+            "vm": "newy-vm0",
+            "terminal_name": "NEWY.0",
+            "terminal": 6
+          },
+          "destination": {
+            "site": "MICH",
+            "vm": "mich-vm1",
+            "terminal_name": "MICH.1",
+            "terminal": 9
+          },
+          "steps": [
+            {
+              "start_interval": 25,
+              "intervals": 10,
+              "start_s": 250,
+              "duration_s": 100,
+              "rate_gbps": 40
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -14,6 +14,7 @@ tests.
 ```
 trace/
   fabric-metrics-to-ffw-trace.py      the converter (its docstring is the normative spec)
+  fetch-prometheus-range.py           Prometheus query_range -> converter input (MFLib export path)
   mappings/fabric-5site-example.json  example mapping for the 5-site subset
   samples/iperf3/                     REAL iperf3 JSON results, loopback on one machine
     generate-loopback-samples.sh      how they were produced (rerun to regenerate)
@@ -101,13 +102,46 @@ curl -G "$PROM/api/v1/query_range" \
     -d start=<unix> -d end=<unix> -d step=5 > tx.json
 ```
 
-Query the **raw counter**, not `rate()`/`irate()`: the converter differences the
+or, without curl and with the checks below, `fetch-prometheus-range.py` (see
+[Fetching from Prometheus](#fetching-from-prometheus-mflib)). Query the **raw
+counter**, not `rate()`/`irate()`: the converter differences the
 samples itself. Per-step byte deltas ×8 become bits and are resampled onto the FFW
 grid. A negative delta (exporter restart, driver reload, wrap) is treated as a
 counter reset: clamped to 0 with a warning. That step's true volume is lost, and
 the resulting idle interval is a gap, which is why the sample command needs
 `--gap-policy split` (see below). `query_range` evaluates the counter at each
 step, so use a `step` no smaller than the scrape interval.
+
+### Fetching from Prometheus (MFLib)
+
+MFLib, FABRIC's measurement framework, instruments a slice with a measurement node
+that runs Prometheus and scrapes node-exporter on every VM. Exporting a
+`query_range` window from it is therefore the expected MFLib export path.
+`fetch-prometheus-range.py` does that GET and checks that the answer is a
+successful `matrix` response. It then writes the body **unchanged**, which is
+exactly the document `prometheus` mode reads:
+
+```bash
+PROM_PASSWORD=... python3 trace/fetch-prometheus-range.py \
+    --base-url https://localhost:9090 --insecure --user <user> \
+    --query 'node_network_transmit_bytes_total{device="enp7s0"}' \
+    --start 2026-10-05T14:00:00Z --end 2026-10-05T14:07:00Z --step 5 \
+    -o tx.json
+```
+
+- **Connection.** On the MFLib measurement node, Prometheus listens on
+  `https://localhost:9090` with basic auth and a self-signed certificate. Reach it
+  through an SSH tunnel via the bastion, with `--insecure` (or `--ca-file`) and
+  `--user`. The password is read from the environment variable named by
+  `--password-env` (default `PROM_PASSWORD`), never from the command line.
+- **Times.** `--start`/`--end` take unix seconds or RFC 3339, and `--step` takes
+  seconds or a duration such as `5s`.
+- **Resolution limit.** Ranges over Prometheus' 11000-points-per-series limit are
+  refused before sending.
+- **Status.** **UNTESTED against a real MFLib deployment** (requires FABRIC project
+  access; see [`docs/access-checklist.md`](../docs/access-checklist.md)). The tests
+  run it against a local mock server. One test feeds the fetched file to the
+  converter and checks that it reproduces `expected/prometheus-5s-split.csv`.
 
 ### Checking an existing trace
 
@@ -225,11 +259,14 @@ timestamps have millisecond resolution.
 python3 -m unittest discover -s trace/tests -v
 ```
 
-59 tests, stdlib `unittest`, offline, under a second: golden comparisons of both
+69 tests, stdlib `unittest`, offline, a few seconds. 59 converter tests: golden comparisons of both
 modes against the committed samples, volume conservation against iperf3 totals,
 resampling edge cases, counter reset clamp + split, idle-edge trimming, the
 threshold, and rejection of invalid mappings, iperf3/Prometheus inputs, and
-traces (the validator is tested against every parser rule).
+traces (the validator is tested against every parser rule). 10 fetcher tests
+(`test_fetch_prometheus_range.py`): against a local `http.server` mock, the
+request parameters, basic auth, error envelopes, the points limit, and the
+fetcher-to-converter round trip against the golden trace.
 
 If a converter change intentionally alters output, regenerate the goldens with the
 three commands above (their `-o` paths are the golden files) plus:
@@ -279,12 +316,13 @@ is delivered (these samples do not congest STAR→MICH).
 ## Where this sits in the plan
 
 - **Phase 2 (this directory):** the conversion half of the trace pipeline, with
-  the mapping contract, validation, and offline tests. Still to do in Phase 2:
-  fixed-rate UDP experiment plans (which site pairs, rates, durations, `--title`
-  naming convention so mappings are trivial), and exporting MFLib's Prometheus
-  data (`query_range` over the experiment window) into this input format.
+  the mapping contract, validation, and offline tests, plus the MFLib/Prometheus
+  export step (`fetch-prometheus-range.py`). The fixed-rate UDP experiment plans,
+  with their `--title` convention and generated mapping, are in
+  [`../experiments/`](../experiments/README.md).
 - **Phase 3:** run those plans on a slice spanning the five sites, convert the
   iperf3 sender results with this tool (mode 1), replay them in the FFW model, and
   compare the model's delivered volume/loss per flow and STAR→MICH link load
-  against iperf3 receiver results and MFLib interface counters. Mode 2 then
-  supplies realistic background load from observed counters.
+  against iperf3 receiver results and MFLib interface counters
+  ([`../analysis/`](../analysis/README.md)). Mode 2 then supplies realistic
+  background load from observed counters.
